@@ -1,0 +1,12 @@
+name: attention
+channels:
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.10
+  - cudatoolkit=11.3
+  - pytorch=1.11
+  - torchvision
+  - numpy=1.23
+  - ipykernel
+  - ipywidgets
