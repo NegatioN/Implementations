@@ -28,13 +28,13 @@ object Main extends App {
 
     def backward = {
       grad = 1.0f
-      var stack = List(this)
-      while (stack.nonEmpty) {
-        val node = stack.head
-        stack = stack.tail
-        node._backward()
-        stack = stack ++ node.prev
+      def backwardRec(values: Set[Value]): Unit = {
+        values.foreach { value =>
+          value._backward()
+          backwardRec(value.prev)
+        }
       }
+      backwardRec(Set(this))
   }
 
     override def toString: String = f"Value($value%.2f, grad=$grad%.2f)"
