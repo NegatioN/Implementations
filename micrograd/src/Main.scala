@@ -1,26 +1,24 @@
 object Main extends App {
   case class Value(value: Float, children: Set[Value] = Set.empty) {
-    var grad = 0.0f
     val prev: Set[Value] = children
+    var grad = 0.0f
     var _backward: () => Unit = () => {}
 
     def *(that: Value): Value = {
       val result = Value(value * that.value, Set(this, that))
-      def _backward() = {
+      result._backward = () => {
         this.grad += result.grad * that.value
         that.grad += result.grad * this.value
       }
-      result._backward = _backward
       result
     }
 
     def +(that: Value): Value = {
       val result = Value(value + that.value, Set(this, that))
-      def _backward() = {
+      result._backward = () => {
         this.grad += result.grad
         that.grad += result.grad
       }
-      result._backward = _backward
       result
     }
 
