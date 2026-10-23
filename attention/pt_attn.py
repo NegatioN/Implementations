@@ -7,15 +7,23 @@ n_token, n_dim = 3, 4
 
 size = (n_token, n_dim)
 X = torch.randn(*size) #input
-mask = torch.tril(torch.ones((n_token, n_token), dtype=torch.bool))
+max_len = 1024
+
+# Created once up to max_len (e.g., 1024 x 1024)
+max_mask = torch.tril(torch.ones((max_len, max_len), dtype=torch.bool))
+
+def attention_masked(Q, K, V):
+    T, d_k = Q.size(-2), K.size(-1)
+    scale = math.sqrt(d_k)
+    scores = (Q @ K.transpose(-2, -1)) / scale
+
+    # Slice the mask to match current sequence length T
+    return softmax(torch.where(max_mask[:T, :T], scores, -torch.inf)) @ V
+
 
 def softmax(x):
     exp_x = torch.exp(x)
     return exp_x / exp_x.sum(axis=-1, keepdims=True)
-
-def attention_masked(Q, K, V):
-    scale = math.sqrt(K.size(-1)) # should be kept in pytorch :shrug:
-    return softmax(torch.where(mask, (Q @ K.T) / scale, -torch.inf)) @ V
 
 def single_head_attention(X, Q_w, K_w, V_w, f_attn=attention_masked):
     Q = X @ Q_w
@@ -56,3 +64,31 @@ tb = TBlock(2, 4, 16)
 
 print(tb(X))
         
+
+class Transformer(nn.Module):
+    def __init__(self, vocab_size, max_len, n_layers, n_heads, n_dim, h_dim):
+        super().__init__()
+        self.token_embedding = nn.Embedding(vocab_size, n_dim)
+        self.position_embedding = nn.Embedding(max_len, n_dim)
+
+        self.blocks = nn.ModuleList([
+            TBlock(n_heads, n_dim, h_dim) for _ in range(n_layers)
+        ])
+        self.ln_f = nn.LayerNorm(n_dim)
+        self.lm_head = nn.Linear(n_dim, vocab_size, bias=False)
+
+    def forward(self, tokens):
+        positions = torch.arange(len(tokens), device=tokens.device)
+        X = self.token_embedding(tokens) + self.position_embedding(positions)
+
+        for block in self.blocks:
+            X = block(X)
+
+        X = self.ln_f(X)
+        logits = self.lm_head(X) # shape: (n_token, vocab_size)
+        return logits
+
+
+t = Transformer(100, 1024, 3, 2, 4, 16)
+
+print(t(torch.arange(5)))
